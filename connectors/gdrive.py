@@ -1,6 +1,7 @@
 import os.path
 import io
 import json
+import base64
 from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
@@ -20,7 +21,13 @@ class GDriveConnector:
         service_account_info = None
         try:
             import streamlit as st
-            if "GOOGLE_SERVICE_ACCOUNT_JSON" in st.secrets:
+            # Try Base64 First (The Bulletproof Way)
+            if "GOOGLE_SERVICE_ACCOUNT_B64" in st.secrets:
+                b64_data = st.secrets["GOOGLE_SERVICE_ACCOUNT_B64"]
+                decoded_data = base64.b64decode(b64_data).decode('utf-8')
+                service_account_info = json.loads(decoded_data)
+            # Fallback to JSON String
+            elif "GOOGLE_SERVICE_ACCOUNT_JSON" in st.secrets:
                 service_account_info = st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]
         except: pass
 
@@ -29,18 +36,15 @@ class GDriveConnector:
 
         if service_account_info:
             try:
-                # If it's a string (from TOML ''' block), parse it. 
-                # If Streamlit already parsed it as a dict, use it.
+                # Parse if string, use if dict
                 if isinstance(service_account_info, str):
                     info = json.loads(service_account_info)
                 else:
                     info = dict(service_account_info)
                 
-                # Clean up the private key
+                # Fix escaped newlines
                 if "private_key" in info:
-                    key = info["private_key"]
-                    # If it's a multi-line string, just strip extra whitespace
-                    info["private_key"] = key.strip().replace("\\n", "\n")
+                    info["private_key"] = info["private_key"].replace("\\n", "\n")
                 
                 return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
             except Exception as e:
@@ -57,7 +61,7 @@ class GDriveConnector:
             flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
             return flow.run_local_server(port=0)
             
-        raise Exception("No credentials found. Please add GOOGLE_SERVICE_ACCOUNT_JSON to Streamlit Secrets.")
+        raise Exception("No credentials found. Please add GOOGLE_SERVICE_ACCOUNT_B64 or GOOGLE_SERVICE_ACCOUNT_JSON to Streamlit Secrets.")
 
     def list_files(self, query=None):
         if not query:
