@@ -33,15 +33,15 @@ st.markdown("""
 # Initialize Session State
 if 'initialized' not in st.session_state:
     try:
-        # Debugging Secrets
-        found_keys = []
-        try:
-            import streamlit as st
-            found_keys = list(st.secrets.keys())
-        except: pass
+        # Check for ANY valid credential key
+        import streamlit as st
+        found_keys = list(st.secrets.keys())
         
-        if "GOOGLE_SERVICE_ACCOUNT_JSON" not in found_keys and "GOOGLE_SERVICE_ACCOUNT_JSON" not in os.environ:
-            st.error(f"Secret Missing: GOOGLE_SERVICE_ACCOUNT_JSON not found. Found keys: {found_keys}")
+        has_creds = any(k in found_keys for k in ["GOOGLE_SERVICE_ACCOUNT_JSON", "GOOGLE_SERVICE_ACCOUNT_B64"]) or \
+                    "GOOGLE_SERVICE_ACCOUNT_JSON" in os.environ
+        
+        if not has_creds:
+            st.warning("⚠️ Credentials Missing: Please add GOOGLE_SERVICE_ACCOUNT_B64 to Streamlit Secrets.")
             st.stop()
 
         st.session_state.connector = GDriveConnector()
