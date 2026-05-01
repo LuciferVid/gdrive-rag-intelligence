@@ -33,6 +33,17 @@ st.markdown("""
 # Initialize Session State
 if 'initialized' not in st.session_state:
     try:
+        # Debugging Secrets
+        found_keys = []
+        try:
+            import streamlit as st
+            found_keys = list(st.secrets.keys())
+        except: pass
+        
+        if "GOOGLE_SERVICE_ACCOUNT_JSON" not in found_keys and "GOOGLE_SERVICE_ACCOUNT_JSON" not in os.environ:
+            st.error(f"Secret Missing: GOOGLE_SERVICE_ACCOUNT_JSON not found. Found keys: {found_keys}")
+            st.stop()
+
         st.session_state.connector = GDriveConnector()
         st.session_state.embedding_model = EmbeddingModel()
         st.session_state.vector_store = VectorStore()
@@ -41,7 +52,6 @@ if 'initialized' not in st.session_state:
         st.session_state.initialized = True
     except Exception as e:
         st.error(f"Critical Initialization Error: {e}")
-        st.info("Check your Streamlit Secrets and Google Cloud credentials.")
         st.session_state.initialized = False
         st.stop()
 
