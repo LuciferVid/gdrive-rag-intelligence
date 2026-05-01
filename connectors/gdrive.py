@@ -39,21 +39,30 @@ class GDriveConnector:
                 # FIX: Ensure private key has correct newline characters and no extra quotes
                 if "private_key" in info:
                     key = info["private_key"].strip()
-                    # Remove any accidental wrapping quotes inside the JSON string
+                    # Remove any accidental wrapping quotes
                     if (key.startswith('"') and key.endswith('"')) or (key.startswith("'") and key.endswith("'")):
                         key = key[1:-1]
                     
+                    # Fix escaped newlines
                     key = key.replace("\\n", "\n")
                     
-                    # Ensure headers are intact
-                    if "-----BEGIN PRIVATE KEY-----" not in key:
-                        raise Exception("Private key is missing the '-----BEGIN PRIVATE KEY-----' header.")
+                    # Ensure it has the headers
+                    if not key.startswith("-----BEGIN PRIVATE KEY-----"):
+                        if "-----BEGIN PRIVATE KEY-----" in key:
+                            key = key[key.find("-----BEGIN PRIVATE KEY-----"):]
+                        else:
+                            raise Exception(f"Key missing header. Starts with: {key[:20]}...")
+                    
+                    if not key.strip().endswith("-----END PRIVATE KEY-----"):
+                        if "-----END PRIVATE KEY-----" in key:
+                            key = key[:key.find("-----END PRIVATE KEY-----") + 25]
                     
                     info["private_key"] = key
                     
                 return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
             except Exception as e:
-                raise Exception(f"Service Account Error: {str(e)} (Check for missing headers or extra spaces)")
+                # Provide extremely descriptive error
+                raise Exception(f"Service Account Error: {str(e)}")
 
         # 3. Last Resort: Local OAuth
         token_path = os.getenv("TOKEN_PATH", "data/credentials/token.json")
