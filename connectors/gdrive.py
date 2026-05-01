@@ -16,7 +16,7 @@ class GDriveConnector:
         self.service = build('drive', 'v3', credentials=self.creds)
 
     def _authenticate(self):
-        # 1. Force check Streamlit Secrets first (for Cloud)
+        # 1. Check Streamlit Secrets (for Cloud)
         service_account_info = None
         try:
             import streamlit as st
@@ -24,43 +24,29 @@ class GDriveConnector:
                 service_account_info = st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]
         except: pass
 
-        # 2. Fallback to Environment Variable
         if not service_account_info:
             service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
 
         if service_account_info:
             try:
-                # If it's a string, parse it. If it's already a dict, use it.
+                # If it's a string (from TOML ''' block), parse it. 
+                # If Streamlit already parsed it as a dict, use it.
                 if isinstance(service_account_info, str):
                     info = json.loads(service_account_info)
                 else:
                     info = dict(service_account_info)
                 
-                # FIX: Nuclear Rebuild of the Private Key
+                # Fix escaped newlines in the private key string
                 if "private_key" in info:
-                    key = info["private_key"]
-                    
-                    # 1. Strip headers and all possible whitespace/newlines
-                    content = key.replace("-----BEGIN PRIVATE KEY-----", "")
-                    content = content.replace("-----END PRIVATE KEY-----", "")
-                    content = content.replace("\\n", "").replace("\n", "").replace("\r", "").replace(" ", "").strip()
-                    
-                    # 2. Rebuild with perfect 64-character wrapping
-                    rebuilt_key = "-----BEGIN PRIVATE KEY-----\n"
-                    for i in range(0, len(content), 64):
-                        rebuilt_key += content[i:i+64] + "\n"
-                    rebuilt_key += "-----END PRIVATE KEY-----\n"
-                    
-                    info["private_key"] = rebuilt_key
-                    
+                    info["private_key"] = info["private_key"].replace("\\n", "\n")
+                
                 return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
             except Exception as e:
-                # Provide extremely descriptive error
-                raise Exception(f"Service Account Error: {str(e)}")
+                raise Exception(f"Service Account Auth Failed: {e}")
 
-        # 3. Last Resort: Local OAuth
-        token_path = os.getenv("TOKEN_PATH", "data/credentials/token.json")
-        creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "data/credentials/credentials.json")
+        # 2. Last Resort: Local OAuth
+        token_path = "data/credentials/token.json"
+        creds_path = "data/credentials/credentials.json"
         
         if os.path.exists(token_path):
             return Credentials.from_authorized_user_file(token_path, SCOPES)
