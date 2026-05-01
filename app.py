@@ -46,11 +46,19 @@ if 'initialized' not in st.session_state:
 with st.sidebar:
     st.title("🧠 Intelligence")
     if st.button("🔄 Sync Documents"):
-        with st.status("Reading your Drive...", expanded=False) as status:
+        with st.status("Initializing Sync...", expanded=True) as status:
             try:
+                status.write("Listing files from Google Drive...")
                 files = st.session_state.connector.list_files()
+                
+                if not files:
+                    st.warning("No supported files found in your drive.")
+                    status.update(label="Sync Aborted", state="error")
+                    st.stop()
+
                 all_chunks = []
-                for file in files:
+                for i, file in enumerate(files):
+                    status.write(f"Processing ({i+1}/{len(files)}): {file['name']}...")
                     try:
                         content = st.session_state.connector.download_file(file['id'], file['mimeType'])
                         text = DocumentParser.extract_text(content, file['mimeType'])
@@ -59,12 +67,18 @@ with st.sidebar:
                     except: continue
 
                 if all_chunks:
+                    status.write(f"Generating AI embeddings for {len(all_chunks)} chunks... (This may take a minute)")
                     embeddings = st.session_state.embedding_model.generate_embeddings([c['text'] for c in all_chunks])
+                    
+                    status.write("Saving to Vector Database...")
                     st.session_state.vector_store.add_documents(embeddings, all_chunks)
-                    st.success(f"Synchronized {len(files)} files.")
-                status.update(label="System Updated", state="complete")
+                    status.update(label="✅ System Fully Updated", state="complete", expanded=False)
+                    st.success(f"Successfully indexed {len(files)} files!")
+                else:
+                    status.update(label="❌ No data found", state="error")
             except Exception as e:
-                st.error("Sync failed. Check credentials.")
+                st.error(f"Sync failed: {e}")
+                status.update(label="Sync Failed", state="error")
 
 # Main Chat
 st.title("Drive Intelligence")
