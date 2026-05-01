@@ -40,7 +40,10 @@ if 'initialized' not in st.session_state:
         st.session_state.llm_service = LLMService()
         st.session_state.initialized = True
     except Exception as e:
+        st.error(f"Critical Initialization Error: {e}")
+        st.info("Check your Streamlit Secrets and Google Cloud credentials.")
         st.session_state.initialized = False
+        st.stop()
 
 # Sidebar (Minimal)
 with st.sidebar:
