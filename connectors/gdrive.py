@@ -36,9 +36,11 @@ class GDriveConnector:
                 else:
                     info = dict(service_account_info)
                 
-                # Fix escaped newlines in the private key string
+                # Clean up the private key
                 if "private_key" in info:
-                    info["private_key"] = info["private_key"].replace("\\n", "\n")
+                    key = info["private_key"]
+                    # If it's a multi-line string, just strip extra whitespace
+                    info["private_key"] = key.strip().replace("\\n", "\n")
                 
                 return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
             except Exception as e:
