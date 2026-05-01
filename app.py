@@ -48,22 +48,34 @@ st.markdown("""
 # Initialize Session State
 if 'initialized' not in st.session_state:
     try:
-        st.session_state.connector = GDriveConnector()
+        # Load core AI components first (These don't need GDrive credentials)
         st.session_state.embedding_model = EmbeddingModel()
         st.session_state.vector_store = VectorStore()
         st.session_state.chunker = DocumentChunker()
         st.session_state.llm_service = LLMService()
         st.session_state.initialized = True
+        
+        # Try to load GDrive but don't crash if it fails (Important for live demo)
+        try:
+            st.session_state.connector = GDriveConnector()
+            st.session_state.gdrive_ready = True
+        except Exception:
+            st.session_state.gdrive_ready = False
+            
     except Exception as e:
-        st.error(f"Failed to initialize: {e}")
+        st.error(f"Critical initialization failed: {e}")
         st.session_state.initialized = False
 
-# Sidebar
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/300/300221.png", width=50)
     st.title("Settings")
     
-    if st.button("🔄 Sync Google Drive", use_container_width=True):
+    if not st.session_state.get('gdrive_ready', False):
+        st.warning("⚠️ Live GDrive connection not active. Using pre-indexed knowledge base.")
+        if st.button("Retry Connection", use_container_width=True):
+            st.rerun()
+    
+    if st.button("🔄 Sync Google Drive", use_container_width=True, disabled=not st.session_state.get('gdrive_ready', False)):
         with st.status("Syncing Documents...", expanded=True) as status:
             try:
                 st.write("Listing files...")

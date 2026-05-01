@@ -4,9 +4,10 @@ data/credentials/token.json
 data/credentials/credentials.json
 
 # Data & Database
-data/vector_store/
-*.faiss
-*.pkl
+# (We are committing these so the live demo works instantly)
+# data/vector_store/
+# *.faiss
+# *.pkl
 
 # Python
 __pycache__/
