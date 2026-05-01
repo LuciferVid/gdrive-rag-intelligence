@@ -36,28 +36,22 @@ class GDriveConnector:
                 else:
                     info = dict(service_account_info)
                 
-                # FIX: Ensure private key has correct newline characters and no extra quotes
+                # FIX: Nuclear Rebuild of the Private Key
                 if "private_key" in info:
-                    key = info["private_key"].strip()
-                    # Remove any accidental wrapping quotes
-                    if (key.startswith('"') and key.endswith('"')) or (key.startswith("'") and key.endswith("'")):
-                        key = key[1:-1]
+                    key = info["private_key"]
                     
-                    # Fix escaped newlines
-                    key = key.replace("\\n", "\n")
+                    # 1. Strip headers and all possible whitespace/newlines
+                    content = key.replace("-----BEGIN PRIVATE KEY-----", "")
+                    content = content.replace("-----END PRIVATE KEY-----", "")
+                    content = content.replace("\\n", "").replace("\n", "").replace("\r", "").replace(" ", "").strip()
                     
-                    # Ensure it has the headers
-                    if not key.startswith("-----BEGIN PRIVATE KEY-----"):
-                        if "-----BEGIN PRIVATE KEY-----" in key:
-                            key = key[key.find("-----BEGIN PRIVATE KEY-----"):]
-                        else:
-                            raise Exception(f"Key missing header. Starts with: {key[:20]}...")
+                    # 2. Rebuild with perfect 64-character wrapping
+                    rebuilt_key = "-----BEGIN PRIVATE KEY-----\n"
+                    for i in range(0, len(content), 64):
+                        rebuilt_key += content[i:i+64] + "\n"
+                    rebuilt_key += "-----END PRIVATE KEY-----\n"
                     
-                    if not key.strip().endswith("-----END PRIVATE KEY-----"):
-                        if "-----END PRIVATE KEY-----" in key:
-                            key = key[:key.find("-----END PRIVATE KEY-----") + 25]
-                    
-                    info["private_key"] = key
+                    info["private_key"] = rebuilt_key
                     
                 return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
             except Exception as e:
