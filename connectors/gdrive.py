@@ -16,51 +16,41 @@ class GDriveConnector:
         self.service = build('drive', 'v3', credentials=self.creds)
 
     def _authenticate(self):
-        # 1. Try Service Account (Best for Cloud/Production)
-        service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
-        
-        # Fallback for Streamlit Cloud Secrets specifically
+        # 1. Force check Streamlit Secrets first (for Cloud)
+        service_account_info = None
+        try:
+            import streamlit as st
+            if "GOOGLE_SERVICE_ACCOUNT_JSON" in st.secrets:
+                service_account_info = st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]
+        except: pass
+
+        # 2. Fallback to Environment Variable
         if not service_account_info:
-            try:
-                import streamlit as st
-                if "GOOGLE_SERVICE_ACCOUNT_JSON" in st.secrets:
-                    service_account_info = st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]
-            except: pass
+            service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
 
         if service_account_info:
             try:
-                # Handle cases where it might be a dictionary or a string
+                # If it's a string, parse it. If it's already a dict, use it.
                 if isinstance(service_account_info, str):
                     info = json.loads(service_account_info)
                 else:
                     info = dict(service_account_info)
                 return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
             except Exception as e:
-                print(f"Service account auth failed: {e}")
+                raise Exception(f"Failed to parse Service Account JSON: {e}")
 
-        # 2. Fallback to OAuth (Best for Local Development)
+        # 3. Last Resort: Local OAuth
         token_path = os.getenv("TOKEN_PATH", "data/credentials/token.json")
         creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "data/credentials/credentials.json")
         
-        creds = None
         if os.path.exists(token_path):
-            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+            return Credentials.from_authorized_user_file(token_path, SCOPES)
         
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                if not os.path.exists(creds_path):
-                    raise FileNotFoundError("No valid credentials found (Service Account or OAuth).")
-                flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
-                creds = flow.run_local_server(port=0)
+        if os.path.exists(creds_path):
+            flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
+            return flow.run_local_server(port=0)
             
-            # Save the token for next time (Local only)
-            if not os.getenv("STREAMLIT_CLOUD"):
-                os.makedirs(os.path.dirname(token_path), exist_ok=True)
-                with open(token_path, 'w') as token:
-                    token.write(creds.to_json())
-        return creds
+        raise Exception("No credentials found. Please add GOOGLE_SERVICE_ACCOUNT_JSON to Streamlit Secrets.")
 
     def list_files(self, query=None):
         if not query:
