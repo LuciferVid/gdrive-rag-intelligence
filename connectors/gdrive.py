@@ -36,13 +36,24 @@ class GDriveConnector:
                 else:
                     info = dict(service_account_info)
                 
-                # FIX: Ensure private key has correct newline characters
+                # FIX: Ensure private key has correct newline characters and no extra quotes
                 if "private_key" in info:
-                    info["private_key"] = info["private_key"].replace("\\n", "\n")
+                    key = info["private_key"].strip()
+                    # Remove any accidental wrapping quotes inside the JSON string
+                    if (key.startswith('"') and key.endswith('"')) or (key.startswith("'") and key.endswith("'")):
+                        key = key[1:-1]
+                    
+                    key = key.replace("\\n", "\n")
+                    
+                    # Ensure headers are intact
+                    if "-----BEGIN PRIVATE KEY-----" not in key:
+                        raise Exception("Private key is missing the '-----BEGIN PRIVATE KEY-----' header.")
+                    
+                    info["private_key"] = key
                     
                 return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
             except Exception as e:
-                raise Exception(f"Failed to parse Service Account JSON: {e}")
+                raise Exception(f"Service Account Error: {str(e)} (Check for missing headers or extra spaces)")
 
         # 3. Last Resort: Local OAuth
         token_path = os.getenv("TOKEN_PATH", "data/credentials/token.json")
