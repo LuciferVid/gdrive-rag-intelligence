@@ -18,9 +18,22 @@ class GDriveConnector:
     def _authenticate(self):
         # 1. Try Service Account (Best for Cloud/Production)
         service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+        
+        # Fallback for Streamlit Cloud Secrets specifically
+        if not service_account_info:
+            try:
+                import streamlit as st
+                if "GOOGLE_SERVICE_ACCOUNT_JSON" in st.secrets:
+                    service_account_info = st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]
+            except: pass
+
         if service_account_info:
             try:
-                info = json.loads(service_account_info)
+                # Handle cases where it might be a dictionary or a string
+                if isinstance(service_account_info, str):
+                    info = json.loads(service_account_info)
+                else:
+                    info = dict(service_account_info)
                 return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
             except Exception as e:
                 print(f"Service account auth failed: {e}")
