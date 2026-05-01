@@ -35,6 +35,11 @@ class GDriveConnector:
                     info = json.loads(service_account_info)
                 else:
                     info = dict(service_account_info)
+                
+                # FIX: Ensure private key has correct newline characters
+                if "private_key" in info:
+                    info["private_key"] = info["private_key"].replace("\\n", "\n")
+                    
                 return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
             except Exception as e:
                 raise Exception(f"Failed to parse Service Account JSON: {e}")
