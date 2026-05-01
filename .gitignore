@@ -1,0 +1,23 @@
+# Environment & Keys
+.env
+data/credentials/token.json
+data/credentials/credentials.json
+
+# Data & Database
+data/vector_store/
+*.faiss
+*.pkl
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+.env
+
+# OS
+.DS_Store
+.idea/
+.vscode/
